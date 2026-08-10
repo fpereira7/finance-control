@@ -1,0 +1,100 @@
+package com.financecontrol.service;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.financecontrol.dto.CreditCardImportResponse;
+import com.financecontrol.entity.ImportBatch;
+import com.financecontrol.exception.BusinessException;
+import com.financecontrol.exception.CsvImportException;
+import com.financecontrol.mapper.CreditCardImportMapper;
+import com.financecontrol.repository.ImportBatchRepository;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
+
+@ExtendWith(MockitoExtension.class)
+class CreditCardImportServiceTest {
+
+	@Mock
+	private ImportBatchRepository importBatchRepository;
+
+	@Mock
+	private CreditCardStatementCsvParser csvParser;
+
+	@Mock
+	private CreditCardImportMapper creditCardImportMapper;
+
+	@InjectMocks
+	private CreditCardImportService creditCardImportService;
+
+	@Test
+	void shouldRejectDuplicateFileName() {
+		MockMultipartFile file = new MockMultipartFile(
+				"file",
+				"fatura.csv",
+				"text/csv",
+				"date,title,amount".getBytes());
+
+		when(importBatchRepository.existsByFileNameIgnoreCase("fatura.csv")).thenReturn(true);
+
+		assertThrows(BusinessException.class, () -> creditCardImportService.importCsv(file));
+		verify(csvParser, never()).parse(any());
+	}
+
+	@Test
+	void shouldRejectEmptyFile() {
+		MockMultipartFile file = new MockMultipartFile("file", "fatura.csv", "text/csv", new byte[0]);
+
+		assertThrows(CsvImportException.class, () -> creditCardImportService.importCsv(file));
+	}
+
+	@Test
+	void shouldImportValidFile() throws Exception {
+		MockMultipartFile file = new MockMultipartFile(
+				"file",
+				"fatura.csv",
+				"text/csv",
+				"content".getBytes());
+
+		CreditCardStatementLine line = new CreditCardStatementLine(
+				LocalDate.of(2026, 8, 6),
+				"Padaria",
+				new BigDecimal("27.58"));
+		CreditCardStatementParseResult parseResult = new CreditCardStatementParseResult(List.of(line), 1);
+
+		ImportBatch saved = new ImportBatch();
+		saved.setId(10L);
+		saved.setFileName("fatura.csv");
+		saved.setImportedAt(Instant.parse("2026-08-10T12:00:00Z"));
+		saved.setRowCount(1);
+		saved.setSkippedCount(1);
+
+		CreditCardImportResponse response = new CreditCardImportResponse(
+				10L, "fatura.csv", saved.getImportedAt(), 1, 1);
+
+		when(importBatchRepository.existsByFileNameIgnoreCase("fatura.csv")).thenReturn(false);
+		when(csvParser.parse(any())).thenReturn(parseResult);
+		when(creditCardImportMapper.toEntity(line)).thenReturn(new com.financecontrol.entity.CreditCardTransaction());
+		when(importBatchRepository.save(any(ImportBatch.class))).thenReturn(saved);
+		when(creditCardImportMapper.toResponse(saved)).thenReturn(response);
+
+		CreditCardImportResponse result = creditCardImportService.importCsv(file);
+
+		assertEquals(10L, result.importBatchId());
+		assertEquals(1, result.rowsImported());
+		assertEquals(1, result.rowsSkipped());
+		verify(importBatchRepository).save(any(ImportBatch.class));
+	}
+}

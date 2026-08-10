@@ -15,23 +15,41 @@ API de controle financeiro construída com Spring Boot.
 - JUnit 5
 - Mockito
 
+## Arquitetura
+
+```
+Controller → Service → Repository → Database
+```
+
+Pacotes:
+
+| Pacote | Responsabilidade |
+|--------|------------------|
+| `controller` | Endpoints HTTP (DTO) |
+| `service` | Regras de negócio |
+| `repository` | Acesso a dados |
+| `entity` | Persistência |
+| `dto` | Request/response da API |
+| `mapper` | Entity ↔ DTO |
+| `exception` | Exceções e handlers |
+| `configuration` | Configurações Spring |
+
+Entity não é usada como request/response da API.
+
 ## Pré-requisitos
 
 - JDK 21+
-- PostgreSQL rodando em `localhost:5432`
-- Banco `finance_control` criado
+- Docker Desktop
 
-## Configuração
+## Banco de dados (Docker)
 
-Ajuste as credenciais em `src/main/resources/application.properties` se necessário.
-
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/finance_control
-spring.datasource.username=postgres
-spring.datasource.password=postgres
+```bash
+docker compose up -d
 ```
 
-## Executar
+PostgreSQL em `localhost:5432`, banco `finance_control` (usuário/senha: `postgres`/`postgres`).
+
+## Executar a API
 
 ```bash
 ./mvnw spring-boot:run
