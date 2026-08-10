@@ -5,9 +5,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 
@@ -53,6 +55,20 @@ public class GlobalExceptionHandler {
 				.findFirst()
 				.map(error -> error.getField() + ": " + error.getDefaultMessage())
 				.orElse("Validation failed");
+		return buildError(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+	}
+
+	@ExceptionHandler({
+			IllegalArgumentException.class,
+			MethodArgumentTypeMismatchException.class,
+			HttpMessageNotReadableException.class
+	})
+	public ResponseEntity<ApiErrorResponse> handleBadRequest(
+			Exception ex,
+			HttpServletRequest request) {
+		String message = ex instanceof MethodArgumentTypeMismatchException mismatch
+				? "Invalid value for parameter '" + mismatch.getName() + "'"
+				: ex.getMessage();
 		return buildError(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
 	}
 
