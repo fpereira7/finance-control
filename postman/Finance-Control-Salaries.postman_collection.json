@@ -1,0 +1,174 @@
+{
+  "info": {
+    "name": "Finance Control - Salaries",
+    "description": "CRUD de salários CLT/PJ com filtros.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "salaryId",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create salary",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  const json = pm.response.json();",
+              "  if (json.id) {",
+              "    pm.collectionVariables.set('salaryId', json.id);",
+              "  }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"CLT\",\n  \"description\": \"Empresa X\",\n  \"amount\": 5000.00,\n  \"paymentDate\": \"2026-08-05\",\n  \"status\": \"PENDING\"\n}"
+        },
+        "url": "{{baseUrl}}/api/salaries",
+        "description": "Cria um salário.\n\nTipos: CLT, PJ\n\nStatus: RECEIVED, PENDING\n\nO amount representa o valor líquido."
+      },
+      "response": []
+    },
+    {
+      "name": "Create salary PJ",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  const json = pm.response.json();",
+              "  if (json.id) {",
+              "    pm.collectionVariables.set('salaryId', json.id);",
+              "  }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"PJ\",\n  \"description\": \"Nota fiscal cliente Y\",\n  \"amount\": 3200.00,\n  \"paymentDate\": \"2026-08-15\",\n  \"status\": \"RECEIVED\"\n}"
+        },
+        "url": "{{baseUrl}}/api/salaries",
+        "description": "Exemplo de criação de salário PJ."
+      },
+      "response": []
+    },
+    {
+      "name": "List salaries",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/salaries",
+        "description": "Lista todos os salários."
+      },
+      "response": []
+    },
+    {
+      "name": "List salaries with filters",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/salaries?year=2026&month=8&type=CLT&status=PENDING",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "salaries"],
+          "query": [
+            {
+              "key": "year",
+              "value": "2026",
+              "description": "Ano (obrigatório se month for informado)"
+            },
+            {
+              "key": "month",
+              "value": "8",
+              "description": "Mês (1-12). Exige year."
+            },
+            {
+              "key": "type",
+              "value": "CLT",
+              "description": "CLT ou PJ"
+            },
+            {
+              "key": "status",
+              "value": "PENDING",
+              "description": "RECEIVED ou PENDING"
+            }
+          ]
+        },
+        "description": "Lista salários com filtros opcionais: year, month, type, status."
+      },
+      "response": []
+    },
+    {
+      "name": "Get salary by id",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/salaries/{{salaryId}}",
+        "description": "Busca um salário pelo id."
+      },
+      "response": []
+    },
+    {
+      "name": "Update salary",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"CLT\",\n  \"description\": \"Empresa X\",\n  \"amount\": 5200.00,\n  \"paymentDate\": \"2026-08-05\",\n  \"status\": \"RECEIVED\"\n}"
+        },
+        "url": "{{baseUrl}}/api/salaries/{{salaryId}}",
+        "description": "Atualiza um salário existente."
+      },
+      "response": []
+    },
+    {
+      "name": "Delete salary",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/salaries/{{salaryId}}",
+        "description": "Remove um salário pelo id."
+      },
+      "response": []
+    }
+  ]
+}
