@@ -8,6 +8,7 @@ import com.financecontrol.entity.SalaryType;
 import com.financecontrol.exception.ResourceNotFoundException;
 import com.financecontrol.mapper.SalaryMapper;
 import com.financecontrol.repository.SalaryRepository;
+import com.financecontrol.security.AuthenticatedUserAccessor;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,10 +18,15 @@ public class SalaryService {
 
 	private final SalaryRepository salaryRepository;
 	private final SalaryMapper salaryMapper;
+	private final AuthenticatedUserAccessor authenticatedUserAccessor;
 
-	public SalaryService(SalaryRepository salaryRepository, SalaryMapper salaryMapper) {
+	public SalaryService(
+			SalaryRepository salaryRepository,
+			SalaryMapper salaryMapper,
+			AuthenticatedUserAccessor authenticatedUserAccessor) {
 		this.salaryRepository = salaryRepository;
 		this.salaryMapper = salaryMapper;
+		this.authenticatedUserAccessor = authenticatedUserAccessor;
 	}
 
 	@Transactional(readOnly = true)
@@ -30,9 +36,10 @@ public class SalaryService {
 			Integer year,
 			Integer month) {
 		validateYearMonth(year, month);
+		Long userId = authenticatedUserAccessor.requireUserId();
 
 		return salaryRepository
-				.findAll(SalaryRepository.withFilters(type, status, year, month))
+				.findAll(SalaryRepository.withFilters(userId, type, status, year, month))
 				.stream()
 				.map(salaryMapper::toResponse)
 				.toList();
@@ -45,7 +52,9 @@ public class SalaryService {
 
 	@Transactional
 	public SalaryResponse create(SalaryRequest request) {
+		Long userId = authenticatedUserAccessor.requireUserId();
 		Salary salary = salaryMapper.toEntity(request);
+		salary.setUserId(userId);
 		Salary saved = salaryRepository.save(salary);
 		return salaryMapper.toResponse(saved);
 	}
@@ -64,7 +73,8 @@ public class SalaryService {
 	}
 
 	private Salary getOrThrow(Long id) {
-		return salaryRepository.findById(id)
+		Long userId = authenticatedUserAccessor.requireUserId();
+		return salaryRepository.findByIdAndUserId(id, userId)
 				.orElseThrow(() -> new ResourceNotFoundException("Salary not found: " + id));
 	}
 

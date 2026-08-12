@@ -2,6 +2,7 @@ package com.financecontrol.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.financecontrol.dto.MonthlySummaryResponse;
@@ -10,8 +11,10 @@ import com.financecontrol.entity.SalaryStatus;
 import com.financecontrol.repository.CreditCardTransactionRepository;
 import com.financecontrol.repository.MonthlyExpenseRepository;
 import com.financecontrol.repository.SalaryRepository;
+import com.financecontrol.security.AuthenticatedUserAccessor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,6 +23,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class MonthlySummaryServiceTest {
+
+	private static final Long USER_ID = 7L;
 
 	@Mock
 	private SalaryRepository salaryRepository;
@@ -30,39 +35,55 @@ class MonthlySummaryServiceTest {
 	@Mock
 	private CreditCardTransactionRepository creditCardTransactionRepository;
 
+	@Mock
+	private AuthenticatedUserAccessor authenticatedUserAccessor;
+
 	@InjectMocks
 	private MonthlySummaryService monthlySummaryService;
 
+	@BeforeEach
+	void setUpUser() {
+		lenient().when(authenticatedUserAccessor.requireUserId()).thenReturn(USER_ID);
+	}
+
 	@Test
-	void shouldBuildDetailedMonthlySummary() {
+	void shouldBuildDetailedMonthlySummaryForCurrentUser() {
 		LocalDate start = LocalDate.of(2026, 8, 1);
 		LocalDate end = LocalDate.of(2026, 8, 31);
 
-		when(salaryRepository.sumAmountByPaymentDateBetween(start, end))
+		when(salaryRepository.sumAmountByUserIdAndPaymentDateBetween(USER_ID, start, end))
 				.thenReturn(new BigDecimal("8000.00"));
-		when(salaryRepository.sumAmountByPaymentDateBetweenAndStatus(start, end, SalaryStatus.RECEIVED))
+		when(salaryRepository.sumAmountByUserIdAndPaymentDateBetweenAndStatus(
+						USER_ID, start, end, SalaryStatus.RECEIVED))
 				.thenReturn(new BigDecimal("5000.00"));
-		when(salaryRepository.sumAmountByPaymentDateBetweenAndStatus(start, end, SalaryStatus.PENDING))
+		when(salaryRepository.sumAmountByUserIdAndPaymentDateBetweenAndStatus(
+						USER_ID, start, end, SalaryStatus.PENDING))
 				.thenReturn(new BigDecimal("3000.00"));
-		when(salaryRepository.countByPaymentDateBetweenAndStatus(start, end, SalaryStatus.RECEIVED))
+		when(salaryRepository.countByUserIdAndPaymentDateBetweenAndStatus(
+						USER_ID, start, end, SalaryStatus.RECEIVED))
 				.thenReturn(1L);
-		when(salaryRepository.countByPaymentDateBetweenAndStatus(start, end, SalaryStatus.PENDING))
+		when(salaryRepository.countByUserIdAndPaymentDateBetweenAndStatus(
+						USER_ID, start, end, SalaryStatus.PENDING))
 				.thenReturn(1L);
 
-		when(monthlyExpenseRepository.sumAmountByDueDateBetween(start, end))
+		when(monthlyExpenseRepository.sumAmountByUserIdAndDueDateBetween(USER_ID, start, end))
 				.thenReturn(new BigDecimal("2500.00"));
-		when(monthlyExpenseRepository.sumAmountByDueDateBetweenAndPaymentStatus(start, end, PaymentStatus.PAID))
+		when(monthlyExpenseRepository.sumAmountByUserIdAndDueDateBetweenAndPaymentStatus(
+						USER_ID, start, end, PaymentStatus.PAID))
 				.thenReturn(new BigDecimal("1800.00"));
-		when(monthlyExpenseRepository.sumAmountByDueDateBetweenAndPaymentStatus(start, end, PaymentStatus.PENDING))
+		when(monthlyExpenseRepository.sumAmountByUserIdAndDueDateBetweenAndPaymentStatus(
+						USER_ID, start, end, PaymentStatus.PENDING))
 				.thenReturn(new BigDecimal("700.00"));
-		when(monthlyExpenseRepository.countByDueDateBetweenAndPaymentStatus(start, end, PaymentStatus.PAID))
+		when(monthlyExpenseRepository.countByUserIdAndDueDateBetweenAndPaymentStatus(
+						USER_ID, start, end, PaymentStatus.PAID))
 				.thenReturn(3L);
-		when(monthlyExpenseRepository.countByDueDateBetweenAndPaymentStatus(start, end, PaymentStatus.PENDING))
+		when(monthlyExpenseRepository.countByUserIdAndDueDateBetweenAndPaymentStatus(
+						USER_ID, start, end, PaymentStatus.PENDING))
 				.thenReturn(2L);
 
-		when(creditCardTransactionRepository.sumAmountByReferenceYearAndReferenceMonth(2026, 8))
+		when(creditCardTransactionRepository.sumAmountByUserIdAndReferenceYearAndReferenceMonth(USER_ID, 2026, 8))
 				.thenReturn(new BigDecimal("1200.00"));
-		when(creditCardTransactionRepository.countByReferenceYearAndReferenceMonth(2026, 8))
+		when(creditCardTransactionRepository.countByUserIdAndReferenceYearAndReferenceMonth(USER_ID, 2026, 8))
 				.thenReturn(10L);
 
 		MonthlySummaryResponse summary = monthlySummaryService.getSummary(2026, 8);

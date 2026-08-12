@@ -42,6 +42,9 @@ public class MonthlyExpense {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
+	@Column(name = "user_id", nullable = false)
+	private Long userId;
+
 	@PrePersist
 	void onCreate() {
 		Instant now = Instant.now();
@@ -108,5 +111,13 @@ public class MonthlyExpense {
 
 	public void setUpdatedAt(Instant updatedAt) {
 		this.updatedAt = updatedAt;
+	}
+
+	public Long getUserId() {
+		return userId;
+	}
+
+	public void setUserId(Long userId) {
+		this.userId = userId;
 	}
 }

@@ -6,6 +6,7 @@ import com.financecontrol.entity.SalaryStatus;
 import com.financecontrol.repository.CreditCardTransactionRepository;
 import com.financecontrol.repository.MonthlyExpenseRepository;
 import com.financecontrol.repository.SalaryRepository;
+import com.financecontrol.security.AuthenticatedUserAccessor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import org.springframework.stereotype.Service;
@@ -17,47 +18,53 @@ public class MonthlySummaryService {
 	private final SalaryRepository salaryRepository;
 	private final MonthlyExpenseRepository monthlyExpenseRepository;
 	private final CreditCardTransactionRepository creditCardTransactionRepository;
+	private final AuthenticatedUserAccessor authenticatedUserAccessor;
 
 	public MonthlySummaryService(
 			SalaryRepository salaryRepository,
 			MonthlyExpenseRepository monthlyExpenseRepository,
-			CreditCardTransactionRepository creditCardTransactionRepository) {
+			CreditCardTransactionRepository creditCardTransactionRepository,
+			AuthenticatedUserAccessor authenticatedUserAccessor) {
 		this.salaryRepository = salaryRepository;
 		this.monthlyExpenseRepository = monthlyExpenseRepository;
 		this.creditCardTransactionRepository = creditCardTransactionRepository;
+		this.authenticatedUserAccessor = authenticatedUserAccessor;
 	}
 
 	@Transactional(readOnly = true)
 	public MonthlySummaryResponse getSummary(int year, int month) {
 		validateYearMonth(year, month);
+		Long userId = authenticatedUserAccessor.requireUserId();
 
 		LocalDate startDate = LocalDate.of(year, month, 1);
 		LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
 
-		BigDecimal salariesTotal = salaryRepository.sumAmountByPaymentDateBetween(startDate, endDate);
-		BigDecimal salariesReceived = salaryRepository.sumAmountByPaymentDateBetweenAndStatus(
-				startDate, endDate, SalaryStatus.RECEIVED);
-		BigDecimal salariesPending = salaryRepository.sumAmountByPaymentDateBetweenAndStatus(
-				startDate, endDate, SalaryStatus.PENDING);
-		long salariesReceivedCount = salaryRepository.countByPaymentDateBetweenAndStatus(
-				startDate, endDate, SalaryStatus.RECEIVED);
-		long salariesPendingCount = salaryRepository.countByPaymentDateBetweenAndStatus(
-				startDate, endDate, SalaryStatus.PENDING);
+		BigDecimal salariesTotal = salaryRepository
+				.sumAmountByUserIdAndPaymentDateBetween(userId, startDate, endDate);
+		BigDecimal salariesReceived = salaryRepository.sumAmountByUserIdAndPaymentDateBetweenAndStatus(
+				userId, startDate, endDate, SalaryStatus.RECEIVED);
+		BigDecimal salariesPending = salaryRepository.sumAmountByUserIdAndPaymentDateBetweenAndStatus(
+				userId, startDate, endDate, SalaryStatus.PENDING);
+		long salariesReceivedCount = salaryRepository.countByUserIdAndPaymentDateBetweenAndStatus(
+				userId, startDate, endDate, SalaryStatus.RECEIVED);
+		long salariesPendingCount = salaryRepository.countByUserIdAndPaymentDateBetweenAndStatus(
+				userId, startDate, endDate, SalaryStatus.PENDING);
 
-		BigDecimal fixedExpensesTotal = monthlyExpenseRepository.sumAmountByDueDateBetween(startDate, endDate);
-		BigDecimal fixedExpensesPaid = monthlyExpenseRepository.sumAmountByDueDateBetweenAndPaymentStatus(
-				startDate, endDate, PaymentStatus.PAID);
-		BigDecimal fixedExpensesPending = monthlyExpenseRepository.sumAmountByDueDateBetweenAndPaymentStatus(
-				startDate, endDate, PaymentStatus.PENDING);
-		long fixedExpensesPaidCount = monthlyExpenseRepository.countByDueDateBetweenAndPaymentStatus(
-				startDate, endDate, PaymentStatus.PAID);
-		long fixedExpensesPendingCount = monthlyExpenseRepository.countByDueDateBetweenAndPaymentStatus(
-				startDate, endDate, PaymentStatus.PENDING);
+		BigDecimal fixedExpensesTotal = monthlyExpenseRepository
+				.sumAmountByUserIdAndDueDateBetween(userId, startDate, endDate);
+		BigDecimal fixedExpensesPaid = monthlyExpenseRepository.sumAmountByUserIdAndDueDateBetweenAndPaymentStatus(
+				userId, startDate, endDate, PaymentStatus.PAID);
+		BigDecimal fixedExpensesPending = monthlyExpenseRepository.sumAmountByUserIdAndDueDateBetweenAndPaymentStatus(
+				userId, startDate, endDate, PaymentStatus.PENDING);
+		long fixedExpensesPaidCount = monthlyExpenseRepository.countByUserIdAndDueDateBetweenAndPaymentStatus(
+				userId, startDate, endDate, PaymentStatus.PAID);
+		long fixedExpensesPendingCount = monthlyExpenseRepository.countByUserIdAndDueDateBetweenAndPaymentStatus(
+				userId, startDate, endDate, PaymentStatus.PENDING);
 
 		BigDecimal creditCardTotal = creditCardTransactionRepository
-				.sumAmountByReferenceYearAndReferenceMonth(year, month);
+				.sumAmountByUserIdAndReferenceYearAndReferenceMonth(userId, year, month);
 		long creditCardTransactionCount = creditCardTransactionRepository
-				.countByReferenceYearAndReferenceMonth(year, month);
+				.countByUserIdAndReferenceYearAndReferenceMonth(userId, year, month);
 
 		BigDecimal balance = salariesTotal
 				.subtract(fixedExpensesTotal)

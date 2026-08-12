@@ -21,7 +21,7 @@ public class ImportBatch {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(name = "file_name", nullable = false, unique = true, length = 255)
+	@Column(name = "file_name", nullable = false, length = 255)
 	private String fileName;
 
 	@Column(name = "imported_at", nullable = false, updatable = false)
@@ -38,6 +38,9 @@ public class ImportBatch {
 
 	@Column(name = "reference_month", nullable = false)
 	private int referenceMonth;
+
+	@Column(name = "user_id", nullable = false)
+	private Long userId;
 
 	@OneToMany(mappedBy = "importBatch", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<CreditCardTransaction> transactions = new ArrayList<>();
@@ -108,6 +111,14 @@ public class ImportBatch {
 
 	public void setReferenceMonth(int referenceMonth) {
 		this.referenceMonth = referenceMonth;
+	}
+
+	public Long getUserId() {
+		return userId;
+	}
+
+	public void setUserId(Long userId) {
+		this.userId = userId;
 	}
 
 	public List<CreditCardTransaction> getTransactions() {

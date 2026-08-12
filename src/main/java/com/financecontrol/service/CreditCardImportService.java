@@ -11,6 +11,7 @@ import com.financecontrol.exception.ResourceNotFoundException;
 import com.financecontrol.mapper.CreditCardImportMapper;
 import com.financecontrol.repository.CreditCardTransactionRepository;
 import com.financecontrol.repository.ImportBatchRepository;
+import com.financecontrol.security.AuthenticatedUserAccessor;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.YearMonth;
@@ -26,30 +27,35 @@ public class CreditCardImportService {
 	private final CreditCardTransactionRepository creditCardTransactionRepository;
 	private final CreditCardStatementCsvParser csvParser;
 	private final CreditCardImportMapper creditCardImportMapper;
+	private final AuthenticatedUserAccessor authenticatedUserAccessor;
 
 	public CreditCardImportService(
 			ImportBatchRepository importBatchRepository,
 			CreditCardTransactionRepository creditCardTransactionRepository,
 			CreditCardStatementCsvParser csvParser,
-			CreditCardImportMapper creditCardImportMapper) {
+			CreditCardImportMapper creditCardImportMapper,
+			AuthenticatedUserAccessor authenticatedUserAccessor) {
 		this.importBatchRepository = importBatchRepository;
 		this.creditCardTransactionRepository = creditCardTransactionRepository;
 		this.csvParser = csvParser;
 		this.creditCardImportMapper = creditCardImportMapper;
+		this.authenticatedUserAccessor = authenticatedUserAccessor;
 	}
 
 	@Transactional
 	public CreditCardImportResponse importCsv(MultipartFile file) {
 		validateFile(file);
+		Long userId = authenticatedUserAccessor.requireUserId();
 
 		String fileName = file.getOriginalFilename();
 		YearMonth referenceMonth = StatementReferenceMonthExtractor.extractFromFileName(fileName);
 
-		if (importBatchRepository.existsByFileNameIgnoreCase(fileName)) {
+		if (importBatchRepository.existsByUserIdAndFileNameIgnoreCase(userId, fileName)) {
 			throw new BusinessException("File already imported: " + fileName);
 		}
 
-		if (importBatchRepository.existsByReferenceYearAndReferenceMonth(
+		if (importBatchRepository.existsByUserIdAndReferenceYearAndReferenceMonth(
+				userId,
 				referenceMonth.getYear(),
 				referenceMonth.getMonthValue())) {
 			throw new BusinessException(
@@ -67,6 +73,7 @@ public class CreditCardImportService {
 		}
 
 		ImportBatch batch = new ImportBatch();
+		batch.setUserId(userId);
 		batch.setFileName(fileName);
 		batch.setReferenceYear(referenceMonth.getYear());
 		batch.setReferenceMonth(referenceMonth.getMonthValue());
@@ -84,9 +91,10 @@ public class CreditCardImportService {
 	@Transactional(readOnly = true)
 	public List<CreditCardImportSummaryResponse> findByMonth(int year, int month) {
 		validateYearMonth(year, month);
+		Long userId = authenticatedUserAccessor.requireUserId();
 
 		return importBatchRepository
-				.findByReferenceYearAndReferenceMonthOrderByImportedAtDesc(year, month)
+				.findByUserIdAndReferenceYearAndReferenceMonthOrderByImportedAtDesc(userId, year, month)
 				.stream()
 				.map(batch -> creditCardImportMapper.toSummary(
 						batch,
@@ -96,7 +104,8 @@ public class CreditCardImportService {
 
 	@Transactional(readOnly = true)
 	public CreditCardImportDetailResponse findById(Long id) {
-		ImportBatch batch = importBatchRepository.findById(id)
+		Long userId = authenticatedUserAccessor.requireUserId();
+		ImportBatch batch = importBatchRepository.findByIdAndUserId(id, userId)
 				.orElseThrow(() -> new ResourceNotFoundException("Credit card import not found: " + id));
 
 		List<CreditCardTransaction> transactions = creditCardTransactionRepository

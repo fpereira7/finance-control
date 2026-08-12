@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -15,35 +16,47 @@ import org.springframework.data.repository.query.Param;
 
 public interface SalaryRepository extends JpaRepository<Salary, Long>, JpaSpecificationExecutor<Salary> {
 
+	Optional<Salary> findByIdAndUserId(Long id, Long userId);
+
 	@Query("""
 			select coalesce(sum(s.amount), 0)
 			from Salary s
-			where s.paymentDate between :startDate and :endDate
+			where s.userId = :userId
+			  and s.paymentDate between :startDate and :endDate
 			""")
-	BigDecimal sumAmountByPaymentDateBetween(
+	BigDecimal sumAmountByUserIdAndPaymentDateBetween(
+			@Param("userId") Long userId,
 			@Param("startDate") LocalDate startDate,
 			@Param("endDate") LocalDate endDate);
 
 	@Query("""
 			select coalesce(sum(s.amount), 0)
 			from Salary s
-			where s.paymentDate between :startDate and :endDate
+			where s.userId = :userId
+			  and s.paymentDate between :startDate and :endDate
 			  and s.status = :status
 			""")
-	BigDecimal sumAmountByPaymentDateBetweenAndStatus(
+	BigDecimal sumAmountByUserIdAndPaymentDateBetweenAndStatus(
+			@Param("userId") Long userId,
 			@Param("startDate") LocalDate startDate,
 			@Param("endDate") LocalDate endDate,
 			@Param("status") SalaryStatus status);
 
-	long countByPaymentDateBetweenAndStatus(LocalDate startDate, LocalDate endDate, SalaryStatus status);
+	long countByUserIdAndPaymentDateBetweenAndStatus(
+			Long userId,
+			LocalDate startDate,
+			LocalDate endDate,
+			SalaryStatus status);
 
 	static Specification<Salary> withFilters(
+			Long userId,
 			SalaryType type,
 			SalaryStatus status,
 			Integer year,
 			Integer month) {
 		return (root, query, builder) -> {
 			List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+			predicates.add(builder.equal(root.get("userId"), userId));
 
 			if (type != null) {
 				predicates.add(builder.equal(root.get("type"), type));

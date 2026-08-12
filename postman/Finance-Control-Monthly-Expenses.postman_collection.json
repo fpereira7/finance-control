@@ -1,8 +1,18 @@
 {
   "info": {
     "name": "Finance Control - Monthly Expenses",
-    "description": "CRUD de despesas mensais com filtros.",
+    "description": "CRUD de despesas mensais com filtros.\n\n1. Execute Login (ou Login as migration user) para preencher accessToken.\n2. As demais requests usam Authorization: Bearer {{accessToken}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
   },
   "variable": [
     {
@@ -10,11 +20,104 @@
       "value": "http://localhost:8080"
     },
     {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "userEmail",
+      "value": "user@example.com"
+    },
+    {
+      "key": "userPassword",
+      "value": "password123"
+    },
+    {
       "key": "expenseId",
       "value": "1"
     }
   ],
   "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Obtém JWT e salva em accessToken."
+          },
+          "response": []
+        },
+        {
+          "name": "Login as migration user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "  }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"migration@local\",\n  \"password\": \"ChangeMe123!\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Login do usuário da migration V6 (dados pré-existentes)."
+          },
+          "response": []
+        }
+      ]
+    },
     {
       "name": "Create monthly expense",
       "event": [
@@ -56,7 +159,7 @@
         "method": "GET",
         "header": [],
         "url": "{{baseUrl}}/api/monthly-expenses",
-        "description": "Lista todas as despesas mensais."
+        "description": "Lista todas as despesas mensais do usuário autenticado."
       },
       "response": []
     },
@@ -102,7 +205,7 @@
         "method": "GET",
         "header": [],
         "url": "{{baseUrl}}/api/monthly-expenses/{{expenseId}}",
-        "description": "Busca uma despesa pelo id."
+        "description": "Busca uma despesa pelo id (somente do usuário autenticado)."
       },
       "response": []
     },

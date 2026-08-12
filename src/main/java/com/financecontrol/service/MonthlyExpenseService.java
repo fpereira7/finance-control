@@ -8,6 +8,7 @@ import com.financecontrol.entity.PaymentStatus;
 import com.financecontrol.exception.ResourceNotFoundException;
 import com.financecontrol.mapper.MonthlyExpenseMapper;
 import com.financecontrol.repository.MonthlyExpenseRepository;
+import com.financecontrol.security.AuthenticatedUserAccessor;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,12 +18,15 @@ public class MonthlyExpenseService {
 
 	private final MonthlyExpenseRepository monthlyExpenseRepository;
 	private final MonthlyExpenseMapper monthlyExpenseMapper;
+	private final AuthenticatedUserAccessor authenticatedUserAccessor;
 
 	public MonthlyExpenseService(
 			MonthlyExpenseRepository monthlyExpenseRepository,
-			MonthlyExpenseMapper monthlyExpenseMapper) {
+			MonthlyExpenseMapper monthlyExpenseMapper,
+			AuthenticatedUserAccessor authenticatedUserAccessor) {
 		this.monthlyExpenseRepository = monthlyExpenseRepository;
 		this.monthlyExpenseMapper = monthlyExpenseMapper;
+		this.authenticatedUserAccessor = authenticatedUserAccessor;
 	}
 
 	@Transactional(readOnly = true)
@@ -32,9 +36,10 @@ public class MonthlyExpenseService {
 			Integer year,
 			Integer month) {
 		validateYearMonth(year, month);
+		Long userId = authenticatedUserAccessor.requireUserId();
 
 		return monthlyExpenseRepository
-				.findAll(MonthlyExpenseRepository.withFilters(category, paymentStatus, year, month))
+				.findAll(MonthlyExpenseRepository.withFilters(userId, category, paymentStatus, year, month))
 				.stream()
 				.map(monthlyExpenseMapper::toResponse)
 				.toList();
@@ -47,7 +52,9 @@ public class MonthlyExpenseService {
 
 	@Transactional
 	public MonthlyExpenseResponse create(MonthlyExpenseRequest request) {
+		Long userId = authenticatedUserAccessor.requireUserId();
 		MonthlyExpense expense = monthlyExpenseMapper.toEntity(request);
+		expense.setUserId(userId);
 		MonthlyExpense saved = monthlyExpenseRepository.save(expense);
 		return monthlyExpenseMapper.toResponse(saved);
 	}
@@ -66,7 +73,8 @@ public class MonthlyExpenseService {
 	}
 
 	private MonthlyExpense getOrThrow(Long id) {
-		return monthlyExpenseRepository.findById(id)
+		Long userId = authenticatedUserAccessor.requireUserId();
+		return monthlyExpenseRepository.findByIdAndUserId(id, userId)
 				.orElseThrow(() -> new ResourceNotFoundException("Monthly expense not found: " + id));
 	}
 

@@ -3,6 +3,7 @@ package com.financecontrol.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,13 +15,16 @@ import com.financecontrol.entity.PaymentStatus;
 import com.financecontrol.exception.ResourceNotFoundException;
 import com.financecontrol.mapper.MonthlyExpenseMapper;
 import com.financecontrol.repository.MonthlyExpenseRepository;
+import com.financecontrol.security.AuthenticatedUserAccessor;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,17 +33,27 @@ import org.springframework.data.jpa.domain.Specification;
 @ExtendWith(MockitoExtension.class)
 class MonthlyExpenseServiceTest {
 
+	private static final Long USER_ID = 7L;
+
 	@Mock
 	private MonthlyExpenseRepository monthlyExpenseRepository;
 
 	@Mock
 	private MonthlyExpenseMapper monthlyExpenseMapper;
 
+	@Mock
+	private AuthenticatedUserAccessor authenticatedUserAccessor;
+
 	@InjectMocks
 	private MonthlyExpenseService monthlyExpenseService;
 
+	@BeforeEach
+	void setUpUser() {
+		lenient().when(authenticatedUserAccessor.requireUserId()).thenReturn(USER_ID);
+	}
+
 	@Test
-	void createShouldPersistExpense() {
+	void createShouldPersistExpenseForCurrentUser() {
 		MonthlyExpenseRequest request = new MonthlyExpenseRequest(
 				ExpenseCategory.RENT,
 				new BigDecimal("1500.00"),
@@ -56,14 +70,15 @@ class MonthlyExpenseServiceTest {
 
 		MonthlyExpenseResponse result = monthlyExpenseService.create(request);
 
+		ArgumentCaptor<MonthlyExpense> captor = ArgumentCaptor.forClass(MonthlyExpense.class);
+		verify(monthlyExpenseRepository).save(captor.capture());
+		assertEquals(USER_ID, captor.getValue().getUserId());
 		assertEquals(1L, result.id());
-		assertEquals(ExpenseCategory.RENT, result.category());
-		verify(monthlyExpenseRepository).save(entity);
 	}
 
 	@Test
-	void findByIdShouldFailWhenMissing() {
-		when(monthlyExpenseRepository.findById(99L)).thenReturn(Optional.empty());
+	void findByIdShouldFailWhenMissingForUser() {
+		when(monthlyExpenseRepository.findByIdAndUserId(99L, USER_ID)).thenReturn(Optional.empty());
 
 		assertThrows(ResourceNotFoundException.class, () -> monthlyExpenseService.findById(99L));
 	}
@@ -97,6 +112,7 @@ class MonthlyExpenseServiceTest {
 	private MonthlyExpense buildExpense(Long id) {
 		MonthlyExpense expense = new MonthlyExpense();
 		expense.setId(id);
+		expense.setUserId(USER_ID);
 		expense.setCategory(ExpenseCategory.RENT);
 		expense.setAmount(new BigDecimal("1500.00"));
 		expense.setDueDate(LocalDate.of(2026, 8, 10));

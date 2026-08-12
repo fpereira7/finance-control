@@ -12,20 +12,24 @@ public interface CreditCardTransactionRepository extends JpaRepository<CreditCar
 	@Query("""
 			select coalesce(sum(t.amount), 0)
 			from CreditCardTransaction t
-			where t.importBatch.referenceYear = :year
+			where t.importBatch.userId = :userId
+			  and t.importBatch.referenceYear = :year
 			  and t.importBatch.referenceMonth = :month
 			""")
-	BigDecimal sumAmountByReferenceYearAndReferenceMonth(
+	BigDecimal sumAmountByUserIdAndReferenceYearAndReferenceMonth(
+			@Param("userId") Long userId,
 			@Param("year") int year,
 			@Param("month") int month);
 
 	@Query("""
 			select count(t)
 			from CreditCardTransaction t
-			where t.importBatch.referenceYear = :year
+			where t.importBatch.userId = :userId
+			  and t.importBatch.referenceYear = :year
 			  and t.importBatch.referenceMonth = :month
 			""")
-	long countByReferenceYearAndReferenceMonth(
+	long countByUserIdAndReferenceYearAndReferenceMonth(
+			@Param("userId") Long userId,
 			@Param("year") int year,
 			@Param("month") int month);
 

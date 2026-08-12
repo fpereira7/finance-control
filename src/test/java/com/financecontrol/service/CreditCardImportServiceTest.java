@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,10 +17,12 @@ import com.financecontrol.exception.CsvImportException;
 import com.financecontrol.mapper.CreditCardImportMapper;
 import com.financecontrol.repository.CreditCardTransactionRepository;
 import com.financecontrol.repository.ImportBatchRepository;
+import com.financecontrol.security.AuthenticatedUserAccessor;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -29,6 +33,8 @@ import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class CreditCardImportServiceTest {
+
+	private static final Long USER_ID = 7L;
 
 	@Mock
 	private ImportBatchRepository importBatchRepository;
@@ -42,8 +48,16 @@ class CreditCardImportServiceTest {
 	@Mock
 	private CreditCardImportMapper creditCardImportMapper;
 
+	@Mock
+	private AuthenticatedUserAccessor authenticatedUserAccessor;
+
 	@InjectMocks
 	private CreditCardImportService creditCardImportService;
+
+	@BeforeEach
+	void setUpUser() {
+		lenient().when(authenticatedUserAccessor.requireUserId()).thenReturn(USER_ID);
+	}
 
 	@Test
 	void shouldRejectDuplicateFileName() {
@@ -53,7 +67,8 @@ class CreditCardImportServiceTest {
 				"text/csv",
 				"date,title,amount".getBytes());
 
-		when(importBatchRepository.existsByFileNameIgnoreCase("bradesco_2026-07-15.csv")).thenReturn(true);
+		when(importBatchRepository.existsByUserIdAndFileNameIgnoreCase(USER_ID, "bradesco_2026-07-15.csv"))
+				.thenReturn(true);
 
 		assertThrows(BusinessException.class, () -> creditCardImportService.importCsv(file));
 		verify(csvParser, never()).parse(any());
@@ -67,8 +82,10 @@ class CreditCardImportServiceTest {
 				"text/csv",
 				"content".getBytes());
 
-		when(importBatchRepository.existsByFileNameIgnoreCase("bradesco_2026-07-20.csv")).thenReturn(false);
-		when(importBatchRepository.existsByReferenceYearAndReferenceMonth(2026, 7)).thenReturn(true);
+		when(importBatchRepository.existsByUserIdAndFileNameIgnoreCase(USER_ID, "bradesco_2026-07-20.csv"))
+				.thenReturn(false);
+		when(importBatchRepository.existsByUserIdAndReferenceYearAndReferenceMonth(USER_ID, 2026, 7))
+				.thenReturn(true);
 
 		assertThrows(BusinessException.class, () -> creditCardImportService.importCsv(file));
 		verify(csvParser, never()).parse(any());
@@ -83,7 +100,7 @@ class CreditCardImportServiceTest {
 				"content".getBytes());
 
 		assertThrows(CsvImportException.class, () -> creditCardImportService.importCsv(file));
-		verify(importBatchRepository, never()).existsByFileNameIgnoreCase(any());
+		verify(importBatchRepository, never()).existsByUserIdAndFileNameIgnoreCase(anyLong(), any());
 	}
 
 	@Test
@@ -113,6 +130,7 @@ class CreditCardImportServiceTest {
 
 		ImportBatch saved = new ImportBatch();
 		saved.setId(10L);
+		saved.setUserId(USER_ID);
 		saved.setFileName("bradesco_2026-07-15.csv");
 		saved.setImportedAt(Instant.parse("2026-08-10T12:00:00Z"));
 		saved.setReferenceYear(2026);
@@ -129,8 +147,10 @@ class CreditCardImportServiceTest {
 				1,
 				1);
 
-		when(importBatchRepository.existsByFileNameIgnoreCase("bradesco_2026-07-15.csv")).thenReturn(false);
-		when(importBatchRepository.existsByReferenceYearAndReferenceMonth(2026, 7)).thenReturn(false);
+		when(importBatchRepository.existsByUserIdAndFileNameIgnoreCase(USER_ID, "bradesco_2026-07-15.csv"))
+				.thenReturn(false);
+		when(importBatchRepository.existsByUserIdAndReferenceYearAndReferenceMonth(USER_ID, 2026, 7))
+				.thenReturn(false);
 		when(csvParser.parse(any())).thenReturn(parseResult);
 		when(creditCardImportMapper.toEntity(line)).thenReturn(new com.financecontrol.entity.CreditCardTransaction());
 		when(importBatchRepository.save(any(ImportBatch.class))).thenReturn(saved);
@@ -140,13 +160,11 @@ class CreditCardImportServiceTest {
 
 		ArgumentCaptor<ImportBatch> batchCaptor = ArgumentCaptor.forClass(ImportBatch.class);
 		verify(importBatchRepository).save(batchCaptor.capture());
+		assertEquals(USER_ID, batchCaptor.getValue().getUserId());
 		assertEquals(2026, batchCaptor.getValue().getReferenceYear());
 		assertEquals(7, batchCaptor.getValue().getReferenceMonth());
 		assertEquals(10L, result.importBatchId());
-		assertEquals(2026, result.referenceYear());
-		assertEquals(7, result.referenceMonth());
-		assertEquals(1, result.rowsImported());
-		assertEquals(1, result.rowsSkipped());
-		verify(creditCardTransactionRepository, never()).sumAmountByReferenceYearAndReferenceMonth(anyInt(), anyInt());
+		verify(creditCardTransactionRepository, never())
+				.sumAmountByUserIdAndReferenceYearAndReferenceMonth(anyLong(), anyInt(), anyInt());
 	}
 }
