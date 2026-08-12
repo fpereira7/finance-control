@@ -67,6 +67,27 @@ class CreditCardStatementCsvParserTest {
 		assertTrue(ex.getMessage().contains("no importable transactions"));
 	}
 
+	@Test
+	void shouldParseCsvWithUtf8Bom() {
+		String csv = """
+				date,title,amount
+				2026-07-27,Uber UBER * PENDING,"11,25"
+				2026-07-03,PAG BOLETO BANCARIO,"-8086,88"
+				""";
+		byte[] bom = new byte[] {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+		byte[] content = csv.getBytes(StandardCharsets.UTF_8);
+		byte[] withBom = new byte[bom.length + content.length];
+		System.arraycopy(bom, 0, withBom, 0, bom.length);
+		System.arraycopy(content, 0, withBom, bom.length, content.length);
+
+		CreditCardStatementParseResult result = parser.parse(new ByteArrayInputStream(withBom));
+
+		assertEquals(1, result.lines().size());
+		assertEquals(1, result.skippedCount());
+		assertEquals("Uber UBER * PENDING", result.lines().getFirst().title());
+		assertEquals(new BigDecimal("11.25"), result.lines().getFirst().amount());
+	}
+
 	private ByteArrayInputStream toStream(String csv) {
 		return new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8));
 	}

@@ -5,13 +5,16 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PushbackInputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -25,7 +28,8 @@ public class CreditCardStatementCsvParser {
 	private static final String HEADER_AMOUNT = "amount";
 
 	public CreditCardStatementParseResult parse(InputStream inputStream) {
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+		try (PushbackInputStream pushback = new PushbackInputStream(inputStream, 3);
+				BufferedReader reader = new BufferedReader(new InputStreamReader(stripBom(pushback), StandardCharsets.UTF_8));
 				CSVParser csvParser = CSVFormat.DEFAULT.builder()
 						.setHeader()
 						.setSkipHeaderRecord(true)
@@ -34,7 +38,8 @@ public class CreditCardStatementCsvParser {
 						.build()
 						.parse(reader)) {
 
-			validateHeaders(csvParser);
+			Map<String, String> normalizedHeaders = buildNormalizedHeaderMap(csvParser);
+			validateHeaders(normalizedHeaders);
 
 			List<CreditCardStatementLine> lines = new ArrayList<>();
 			int skippedCount = 0;
@@ -42,15 +47,19 @@ public class CreditCardStatementCsvParser {
 
 			for (CSVRecord record : csvParser) {
 				recordNumber = record.getRecordNumber();
-				ParsedAmount parsedAmount = parseAmount(getRequired(record, HEADER_AMOUNT, recordNumber), recordNumber);
+				ParsedAmount parsedAmount = parseAmount(
+						getRequired(record, normalizedHeaders, HEADER_AMOUNT, recordNumber),
+						recordNumber);
 
 				if (parsedAmount.negativeOrZero()) {
 					skippedCount++;
 					continue;
 				}
 
-				LocalDate date = parseDate(getRequired(record, HEADER_DATE, recordNumber), recordNumber);
-				String title = getRequired(record, HEADER_TITLE, recordNumber);
+				LocalDate date = parseDate(
+						getRequired(record, normalizedHeaders, HEADER_DATE, recordNumber),
+						recordNumber);
+				String title = getRequired(record, normalizedHeaders, HEADER_TITLE, recordNumber);
 
 				lines.add(new CreditCardStatementLine(date, title, parsedAmount.value()));
 			}
@@ -72,45 +81,74 @@ public class CreditCardStatementCsvParser {
 		}
 	}
 
-	private void validateHeaders(CSVParser csvParser) {
-		var headerMap = csvParser.getHeaderMap();
-		if (headerMap == null || headerMap.isEmpty()) {
+	private InputStream stripBom(PushbackInputStream inputStream) throws IOException {
+		byte[] bom = new byte[3];
+		int read = inputStream.read(bom);
+		boolean hasUtf8Bom = read == 3
+				&& (bom[0] & 0xFF) == 0xEF
+				&& (bom[1] & 0xFF) == 0xBB
+				&& (bom[2] & 0xFF) == 0xBF;
+
+		if (!hasUtf8Bom && read > 0) {
+			inputStream.unread(bom, 0, read);
+		}
+
+		return inputStream;
+	}
+
+	private Map<String, String> buildNormalizedHeaderMap(CSVParser csvParser) {
+		Map<String, String> normalizedHeaders = new LinkedHashMap<>();
+		for (String header : csvParser.getHeaderNames()) {
+			normalizedHeaders.put(normalizeHeader(header), header);
+		}
+		return normalizedHeaders;
+	}
+
+	private void validateHeaders(Map<String, String> normalizedHeaders) {
+		if (normalizedHeaders.isEmpty()) {
 			throw new CsvImportException("CSV header is missing. Expected columns: date,title,amount");
 		}
 
-		requireHeader(headerMap.keySet(), HEADER_DATE);
-		requireHeader(headerMap.keySet(), HEADER_TITLE);
-		requireHeader(headerMap.keySet(), HEADER_AMOUNT);
+		requireHeader(normalizedHeaders, HEADER_DATE);
+		requireHeader(normalizedHeaders, HEADER_TITLE);
+		requireHeader(normalizedHeaders, HEADER_AMOUNT);
 	}
 
-	private void requireHeader(Iterable<String> headers, String expected) {
-		for (String header : headers) {
-			if (expected.equalsIgnoreCase(header)) {
-				return;
-			}
+	private void requireHeader(Map<String, String> normalizedHeaders, String expected) {
+		if (!normalizedHeaders.containsKey(expected)) {
+			throw new CsvImportException("CSV header is missing required column: " + expected);
 		}
-		throw new CsvImportException("CSV header is missing required column: " + expected);
 	}
 
-	private String getRequired(CSVRecord record, String column, long recordNumber) {
+	private String getRequired(
+			CSVRecord record,
+			Map<String, String> normalizedHeaders,
+			String column,
+			long recordNumber) {
+		String actualHeader = normalizedHeaders.get(column);
+		if (actualHeader == null) {
+			throw new CsvImportException("Line " + recordNumber + ": missing column '" + column + "'");
+		}
+
 		String value;
 		try {
-			value = record.get(column);
+			value = record.get(actualHeader);
 		}
 		catch (IllegalArgumentException ex) {
-			try {
-				value = record.get(column.toLowerCase(Locale.ROOT));
-			}
-			catch (IllegalArgumentException ignored) {
-				throw new CsvImportException(
-						"Line " + recordNumber + ": missing column '" + column + "'");
-			}
+			throw new CsvImportException("Line " + recordNumber + ": missing column '" + column + "'", ex);
 		}
 
 		if (value == null || value.isBlank()) {
 			throw new CsvImportException("Line " + recordNumber + ": column '" + column + "' is required");
 		}
 		return value.trim();
+	}
+
+	private String normalizeHeader(String header) {
+		if (header == null) {
+			return "";
+		}
+		return header.replace("\uFEFF", "").trim().toLowerCase(Locale.ROOT);
 	}
 
 	private LocalDate parseDate(String rawDate, long recordNumber) {

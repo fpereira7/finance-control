@@ -46,7 +46,7 @@
           "raw": "{\n  \"category\": \"RENT\",\n  \"amount\": 1500.00,\n  \"dueDate\": \"2026-08-10\",\n  \"paymentStatus\": \"PENDING\"\n}"
         },
         "url": "{{baseUrl}}/api/monthly-expenses",
-        "description": "Cria uma despesa mensal.\n\nCategorias: RENT, ENERGY, WATER, INTERNET, PHONE, INSURANCE, EDUCATION, HEALTH, TRANSPORT, OTHER\n\nStatus: PAID, PENDING"
+        "description": "Cria uma despesa mensal.\n\nCategorias: RENT, ENERGY, GAS, WATER, INTERNET, PHONE, INSURANCE, EDUCATION, HEALTH, TRANSPORT, OTHER\n\nStatus: PAID, PENDING"
       },
       "response": []
     },

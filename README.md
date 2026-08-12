@@ -55,6 +55,15 @@ PostgreSQL em `localhost:5432`, banco `finance_control` (usuário/senha: `postgr
 ./mvnw spring-boot:run
 ```
 
+## Frontend (Angular)
+
+```bash
+cd frontend
+npm start
+```
+
+Abre em `http://localhost:4200`. A etapa atual cobre a importação de fatura CSV com feedback do resumo.
+
 ## Testes
 
 ```bash

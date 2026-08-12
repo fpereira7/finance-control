@@ -33,6 +33,12 @@ public class ImportBatch {
 	@Column(name = "skipped_count", nullable = false)
 	private int skippedCount;
 
+	@Column(name = "reference_year", nullable = false)
+	private int referenceYear;
+
+	@Column(name = "reference_month", nullable = false)
+	private int referenceMonth;
+
 	@OneToMany(mappedBy = "importBatch", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<CreditCardTransaction> transactions = new ArrayList<>();
 
@@ -86,6 +92,22 @@ public class ImportBatch {
 
 	public void setSkippedCount(int skippedCount) {
 		this.skippedCount = skippedCount;
+	}
+
+	public int getReferenceYear() {
+		return referenceYear;
+	}
+
+	public void setReferenceYear(int referenceYear) {
+		this.referenceYear = referenceYear;
+	}
+
+	public int getReferenceMonth() {
+		return referenceMonth;
+	}
+
+	public void setReferenceMonth(int referenceMonth) {
+		this.referenceMonth = referenceMonth;
 	}
 
 	public List<CreditCardTransaction> getTransactions() {

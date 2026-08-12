@@ -3,6 +3,7 @@ package com.financecontrol.entity;
 public enum ExpenseCategory {
 	RENT,
 	ENERGY,
+	GAS,
 	WATER,
 	INTERNET,
 	PHONE,
