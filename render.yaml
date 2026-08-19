@@ -21,4 +21,4 @@ services:
       - key: APP_JWT_EXPIRATION_MS
         value: "3600000"
       - key: APP_CORS_ORIGINS
-        value: http://localhost:4200
+        value: http://localhost:4200,https://*.vercel.app

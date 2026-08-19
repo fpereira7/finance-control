@@ -103,7 +103,7 @@ Variáveis de ambiente em produção:
 | `SPRING_DATASOURCE_PASSWORD` | sim | |
 | `APP_JWT_SECRET` | sim | mínimo 32 caracteres; não use o default de dev |
 | `APP_JWT_EXPIRATION_MS` | não | padrão `3600000` |
-| `APP_CORS_ORIGINS` | não | origens separadas por vírgula; local: `http://localhost:4200` |
+| `APP_CORS_ORIGINS` | não | origens/padrões separados por vírgula; produção: `http://localhost:4200,https://*.vercel.app` |
 | `PORT` | injetada pelo Render | a API escuta `0.0.0.0:$PORT` |
 
 Health check: `GET /health`.
