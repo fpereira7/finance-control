@@ -90,6 +90,26 @@ Em ambientes com dados reais, altere a senha ou migre esses registros para uma c
 ./mvnw spring-boot:run
 ```
 
+## Deploy (Render)
+
+A API sobe como Web Service Docker. Arquivos: `Dockerfile`, `render.yaml`.
+
+Variáveis de ambiente em produção:
+
+| Variável | Obrigatória | Notas |
+|----------|-------------|--------|
+| `SPRING_DATASOURCE_URL` | sim | JDBC Postgres (`?sslmode=require` no Supabase) |
+| `SPRING_DATASOURCE_USERNAME` | sim | |
+| `SPRING_DATASOURCE_PASSWORD` | sim | |
+| `APP_JWT_SECRET` | sim | mínimo 32 caracteres; não use o default de dev |
+| `APP_JWT_EXPIRATION_MS` | não | padrão `3600000` |
+| `APP_CORS_ORIGINS` | não | origens separadas por vírgula; local: `http://localhost:4200` |
+| `PORT` | injetada pelo Render | a API escuta `0.0.0.0:$PORT` |
+
+Health check: `GET /health`.
+
+Blueprint no Dashboard: [criar a partir do repo](https://dashboard.render.com/blueprint/new?repo=https://github.com/fpereira7/finance-control)
+
 ## Frontend (Angular)
 
 ```bash

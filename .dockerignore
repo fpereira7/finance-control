@@ -1,0 +1,12 @@
+.git
+.gitignore
+.idea
+*.iml
+.vscode
+target
+HELP.md
+postman
+README.md
+docker-compose.yml
+**/.DS_Store
+src/test
